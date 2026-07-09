@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>тайгана</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- ТЕМА 1: ТЕМНО-СИНИЙ ФОН --- */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #0b1325; 
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        
+        #map { width: 100%; max-width: 800px; height: 450px; margin: 20px auto; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1; border: 2px solid #1f232b; }
+        
+        /* ГЛАВНАЯ КНОПКА */
+        button#random-btn { 
+            padding: 15px 30px; font-size: 18px; font-weight: bold;
+            background-color: #5c9ead; color: #d32f2f; border: 2px solid #3d6a74;
+            border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+            transition: 0.2s; position: relative; z-index: 2; margin-top: 10px; 
+        }
+        button#random-btn:hover { background-color: #4a8291; transform: scale(1.02); }
+        
+        .progress-counter { margin-top: 10px; font-size: 14px; color: #8892b0; }
+
+        /* --- КНОПКА И БОКОВОЕ МЕНЮ --- */
+        #menu-btn {
+            position: fixed; top: 20px; left: 20px; font-size: 30px;
+            background: none; border: none; color: #5c9ead; cursor: pointer;
+            z-index: 9997; transition: color 0.2s, transform 0.2s;
+        }
+        #menu-btn:hover { color: #d32f2f; transform: scale(1.1); }
+
+        #sidebar {
+            position: fixed; top: 0; left: 0; width: 320px; height: 100vh;
+            background-color: #1a2235; box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+            z-index: 9996; transform: translateX(-100%); transition: transform 0.3s ease;
+            overflow-y: auto; text-align: left; padding-top: 70px;
+            border-right: 2px solid #3d6a74;
+        }
+        #sidebar.open { transform: translateX(0); }
+        
+        .sidebar-section { padding: 20px; border-bottom: 1px solid #2a3652; }
+        .sidebar-section h3 { color: #5c9ead; margin-top: 0; font-size: 20px; }
+        .authors-info { font-size: 14px; color: #8892b0; line-height: 1.5; }
+        
+        /* Карточки истории в меню */
+        .history-item { 
+            background: #0b1325; padding: 12px; margin-bottom: 10px; 
+            border-radius: 8px; border-left: 4px solid #d32f2f;
+        }
+        .history-item h4 { margin: 0 0 5px 0; color: #d32f2f; font-size: 16px; }
+        .history-item p { margin: 0; font-size: 12px; color: #ccc; }
+
+        /* --- БЕГУЩАЯ СТРОКА LED --- */
+        .led-display {
+            background-color: #000; width: 100%; max-width: 600px;
+            margin: 0 auto 20px auto; padding: 10px 0; border-radius: 8px;
+            border: 3px solid #1a1a1a; box-shadow: inset 0 0 15px rgba(211, 47, 47, 0.2);
+            overflow: hidden; white-space: nowrap; position: relative;
+        }
+        .led-text {
+            display: inline-block; font-family: 'DotGothic16', sans-serif;
+            color: #d32f2f; font-size: 40px; text-transform: uppercase;
+            letter-spacing: 4px; text-shadow: 0 0 5px #d32f2f, 0 0 10px #d32f2f; 
+            padding-left: 100%; animation: marquee 6s linear infinite;
+        }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+        /* --- ДИЗАЙН ПЛАШЕК ЛОКАЦИИ --- */
+        #place-info { display: none; margin-top: 20px; }
+
+.name-row { display: flex; justify-content: center; align-items: center; gap: 50px; margin-bottom: 20px; }
+        .fake-elevator-btn {
+            width: 40px; height: 40px; background: linear-gradient(135deg, #d4d4d4, #8c8c8c);
+            border-radius: 50%; border: 2px solid #555;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.5);
+            cursor: pointer; transition: all 0.2s; 
+        }
+        .fake-elevator-btn:hover { background: linear-gradient(135deg, #a8a8a8, #5e5e5e); box-shadow: 0 2px 3px rgba(0,0,0,0.6), inset 0 4px 6px rgba(0,0,0,0.4); transform: scale(0.95); }
+        .monument-name {
+            background-color: #5c9ead; color: #d32f2f; font-size: 24px; font-weight: bold;
+            padding: 15px 40px; border-radius: 50px; 
+            box-shadow: -15px 0 20px -5px rgba(92, 158, 173, 0.6), 15px 0 20px -5px rgba(92, 158, 173, 0.6);
+            text-shadow: 0 0 1px rgba(0,0,0,0.2); 
+        }
+        .monument-desc { background-color: #5c9ead; color: #1a1a1a; max-width: 700px; margin: 0 auto; padding: 25px; border-radius: 12px; text-align: left; box-shadow: 0 8px 20px rgba(0,0,0,0.4); }
+
+        /* --- СЛОИ ЛИФТА И БЛОКИРОВКИ --- */
+        .elevator-door { position: fixed; top: 0; width: 50vw; height: 100vh; z-index: 9998; transition: transform 0.8s ease-in-out; box-shadow: 0 0 20px rgba(0,0,0,0.5); background-size: cover; background-position: center; background-repeat: no-repeat; }
+        #left-door { left: 0; transform: translateX(-100%); border-right: 2px solid #1f232b; background-image: url('left.jpg'); }
+        #right-door { right: 0; transform: translateX(100%); border-left: 2px solid #1f232b; background-image: url('right.jpg'); }
+        .elevator-door.closed { transform: translateX(0) !important; }
+
+        #pro-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; font-family: sans-serif; visibility: hidden; opacity: 0; transition: opacity 0.3s; }
+        #pro-overlay.active { visibility: visible; opacity: 1; }
+        .pro-box { position: relative; background: #1f232b; padding: 40px; border-radius: 15px; text-align: center; border: 2px solid #ff9800; box-shadow: 0 10px 30px rgba(255, 152, 0, 0.2); max-width: 400px; width: 90%; }
+        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; color: #888; cursor: pointer; transition: color 0.2s; line-height: 1; }
+        .close-btn:hover { color: #fff; }
+        .pro-box h2 { color: #ff9800; margin-top: 0; font-size: 28px; padding-top: 10px; }
+        .timer { font-size: 32px; font-weight: bold; margin: 20px 0; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <button id="menu-btn">☰</button>
+
+    <div id="sidebar">
+        <div class="sidebar-section">
+            <h3>Об авторах</h3>
+            <div class="authors-info">
+                <p><strong>Проект "Тайгана"</strong><br>Создан для исследования скрытых и удивительных мест.</p>
+                <p>Разработка и дизайн: Сунгатуллин Дамир, Фёдоров Дмитрий, Лачимова Елизавета</p>
+                <p>Версия: 1.0.0</p>
+            </div>
+        </div>
+        <div class="sidebar-section">
+            <h3>Найденные локации</h3>
+            <div id="history-container">
+                <p style="color: #8892b0; font-size: 14px;">Вы еще не нашли ни одной локации. Нажмите кнопку на панели лифта!</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="left-door" class="elevator-door"></div>
+    <div id="right-door" class="elevator-door"></div>
+
+    <div id="pro-overlay">
+        <div class="pro-box">
+            <span class="close-btn" id="close-btn">&times;</span>
+            <h2>Оформите PRO подписку</h2>
+            <p>Бесплатный поиск локаций доступен только раз в 5 минут.</p>
+            <div class="timer" id="countdown">05:00</div>
+<p style="color: #aaa; font-size: 14px;">Подождите, чтобы продолжить бесплатно, или приобретите полный доступ.</p>
+        </div>
+    </div>
+
+    <div class="led-display">
+        <div class="led-text">ТАЙГАНА</div>
+    </div>
+    
+    <p>Нажми на кнопку, чтобы отправиться на новый этаж!</p>
+    <button id="random-btn">Найти локацию</button>
+    <div id="counter" class="progress-counter">Открыто локаций: 0 из 15</div>
+
+    <div id="place-info"></div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const monuments = [
+            { name: "Аракаевская пещера", description: "Малоизвестная, но потрясающая пещера с ледяными сталагмитами.", hint: "Нижнесергинский район. Ищи вход на крутом склоне.", lat: 56.4567, lng: 59.2547 },
+            { name: "Дидинский тоннель", description: "Заброшенный железнодорожный тоннель начала XX века.", hint: "Район Первоуральска. Бери резиновые сапоги!", lat: 56.8186, lng: 59.7150 },
+            { name: "Скала Каменные ворота", description: "Уникальная 20-метровая скала с природной сквозной аркой.", hint: "Каменск-Уральский. Добраться можно по тропе вдоль Исети.", lat: 56.4054, lng: 61.8744 },
+            { name: "Тальков Камень", description: "Затопленный карьер необычной формы с отвесными скалами из талька.", hint: "Сысертский район, природный парк «Бажовские места».", lat: 56.4927, lng: 60.7275 },
+            { name: "Аликаев камень", description: "Мощный 50-метровый скальный массив.", hint: "Красноуфимский район, неподалеку от деревни Шатлык.", lat: 56.4783, lng: 57.6186 },
+            { name: "Руины Французского замка", description: "Остатки старинной фабрики, похожие на руины замка.", hint: "Недалеко от поселка Наилы, Миасский городской округ.", lat: 55.3347, lng: 60.1064 },
+            { name: "Шихан на озере Аракуль", description: "Эффектная скальная стена, возвышающаяся над озером.", hint: "Каслинский район. Подъем начинается от берега озера Аракуль.", lat: 55.9841, lng: 60.4930 },
+            { name: "Усьвинские Столбы", description: "Огромный каменный массив на реке Усьва.", hint: "Пермский край, рядом с поселком Усьва.", lat: 58.6547, lng: 57.5719 },
+            { name: "Каменный город", description: "Природный лабиринт из скал-останцев.", hint: "Пермский край, недалеко от поселка Шумихинский.", lat: 58.7227, lng: 57.6325 },
+            { name: "Игнатьевская пещера", description: "Пещера с древними наскальными рисунками эпохи палеолита.", hint: "Челябинская область, Катав-Ивановский район, берег реки Сим.", lat: 54.8980, lng: 57.7820 },
+            { name: "Остров Веры", description: "Остров на озере Тургояк, где сохранились загадочные мегалиты.", hint: "Миасс, озеро Тургояк. Летом можно добраться на лодке.", lat: 55.1608, lng: 60.0319 },
+            { name: "Монастырь Шад Тчуп Линг", description: "Буддийский комплекс прямо на вершине горы Качканар.", hint: "Гора Качканар. Тебя ждет долгий пеший подъем!", lat: 58.7716, lng: 59.3847 },
+            { name: "Александровская сопка", description: "Одна из вершин хребта Урал-Тау. Граница между Европой и Азией.", hint: "Национальный парк Таганай, недалеко от Златоуста.", lat: 55.1275, lng: 59.8072 },
+            { name: "Порог Ревун", description: "Бурный порог на реке Исеть.", hint: "Каменский район, село Покровское. Слушай шум воды!", lat: 56.4341, lng: 61.6033 },
+            { name: "Писаница Оленьи Ручьи", description: "Древний наскальный рисунок оленя.", hint: "Нижнесергинский район. Ищи на скале у реки Серга.", lat: 56.5269, lng: 59.2430 }
+        ];
+
+        let availableMonuments = [...monuments];
+        let foundMonuments = []; // Массив для истории найденных мест
+        let openedCount = 0;
+
+        const map = L.map('map').setView([56.84, 60.65], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+        let currentMarker = null;
+
+        // Элементы интерфейса
+const button = document.getElementById('random-btn');
+        const infoDiv = document.getElementById('place-info');
+        const counterDiv = document.getElementById('counter');
+        const leftDoor = document.getElementById('left-door');
+        const rightDoor = document.getElementById('right-door');
+        
+        // Меню
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const historyContainer = document.getElementById('history-container');
+        
+        // PRO Окно
+        const proOverlay = document.getElementById('pro-overlay');
+        const countdownElement = document.getElementById('countdown');
+        const closeBtn = document.getElementById('close-btn');
+        
+        const COOLDOWN_TIME = 5 * 60 * 1000;
+        let timerInterval;
+
+        // Логика бокового меню
+        menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+
+        // Функция обновления истории в боковом меню
+        function updateHistoryMenu() {
+            if (foundMonuments.length === 0) return;
+            
+            historyContainer.innerHTML = ''; // Очищаем контейнер
+            foundMonuments.forEach((place, index) => {
+                historyContainer.innerHTML += `
+                    <div class="history-item">
+                        <h4>${index + 1}. ${place.name}</h4>
+                        <p>${place.description}</p>
+                    </div>
+                `;
+            });
+        }
+
+        // Таймеры
+        function getRemainingTime() {
+            const lastClickStr = localStorage.getItem('lastClickTime');
+            if (!lastClickStr) return 0;
+            const lastClick = parseInt(lastClickStr, 10);
+            return COOLDOWN_TIME - (Date.now() - lastClick);
+        }
+
+        function updateTimerDisplay(ms) {
+            let minutes = Math.floor(ms / 60000);
+            let seconds = Math.floor((ms % 60000) / 1000);
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+            countdownElement.innerHTML = `${minutes}:${seconds}`;
+        }
+
+        function showProModal(remainingTime) {
+            proOverlay.classList.add('active');
+            updateTimerDisplay(remainingTime);
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const currentRemaining = getRemainingTime();
+                if (currentRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    proOverlay.classList.remove('active');
+                } else {
+                    updateTimerDisplay(currentRemaining);
+                }
+            }, 1000);
+        }
+
+        closeBtn.addEventListener('click', () => {
+            proOverlay.classList.remove('active');
+            clearInterval(timerInterval);
+        });
+
+        // Основная логика
+        button.addEventListener('click', () => {
+            const remaining = getRemainingTime();
+            
+            if (remaining > 0) {
+                showProModal(remaining);
+                return;
+            }
+
+            localStorage.setItem('lastClickTime', Date.now().toString());
+            sidebar.classList.remove('open'); // Закрываем меню при старте лифта, если оно было открыто
+            
+            leftDoor.classList.add('closed');
+            rightDoor.classList.add('closed');
+
+            setTimeout(() => {
+                if (availableMonuments.length === 0) {
+                    alert("Ты открыл все 15 тайных локаций! Начинаем новый круг.");
+                    availableMonuments = [...monuments];
+                    foundMonuments = []; // Очищаем историю при рестарте
+                    openedCount = 0;
+                }
+
+                const randomIndex = Math.floor(Math.random() * availableMonuments.length);
+                const randomPlace = availableMonuments[randomIndex];
+availableMonuments.splice(randomIndex, 1); // Удаляем из доступных
+                foundMonuments.push(randomPlace); // Добавляем в историю
+                
+                openedCount++;
+                counterDiv.textContent = `Открыто локаций: ${openedCount} из ${monuments.length}`;
+                
+                updateHistoryMenu(); // Обновляем HTML список в меню
+
+                infoDiv.style.display = 'block';
+                infoDiv.innerHTML = `
+                    <div class="name-row">
+                        <div class="fake-elevator-btn"></div>
+                        <div class="monument-name">${randomPlace.name}</div>
+                        <div class="fake-elevator-btn"></div>
+                    </div>
+                    
+                    <div class="monument-desc">
+                        <p style="margin-top: 0;"><strong>Описание:</strong> ${randomPlace.description}</p>
+                        <hr style="border: 0; height: 1px; background: rgba(0,0,0,0.1); margin: 15px 0;">
+                        <p style="margin-bottom: 0;"><strong>Подсказка:</strong> ${randomPlace.hint}</p>
+                        <p style="margin-bottom: 0; margin-top: 15px; font-family: monospace; color: #333;">Координаты: ${randomPlace.lat}, ${randomPlace.lng}</p>
+                    </div>
+                `;
+
+                if (currentMarker) map.removeLayer(currentMarker);
+                currentMarker = L.marker([randomPlace.lat, randomPlace.lng]).addTo(map);
+                map.setView([randomPlace.lat, randomPlace.lng], 12);
+
+                setTimeout(() => {
+                    leftDoor.classList.remove('closed');
+                    rightDoor.classList.remove('closed');
+                }, 500);
+
+            }, 800);
+        });
+    </script>
+</body>
+</html>
